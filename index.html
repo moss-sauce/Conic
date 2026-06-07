@@ -22,9 +22,12 @@
 
         <!-- 2D Visualization Area -->
         <div class="view-panel" id="view-2d">
-            <div class="panel-header">
-                <h2>2D Graph</h2>
-                <p>The resulting conic section</p>
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%; pointer-events: auto;">
+                <div>
+                    <h2>2D Graph</h2>
+                    <p>The resulting conic section</p>
+                </div>
+                <a href="conic-details.html" id="deep-dive-link" style="background: var(--accent-color); color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 0.75rem; font-weight: 600; box-shadow: 0 0 10px var(--accent-glow); transition: transform 0.2s; display: inline-block;">Detailed 2D Conic</a>
             </div>
             <canvas id="canvas-2d"></canvas>
         </div>
@@ -33,7 +36,6 @@
         <div class="controls-panel">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
                 <h2 style="margin-bottom: 0;">Parameters</h2>
-                <a href="conic-details.html" id="deep-dive-link" style="background: var(--accent-color); color: white; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 0.875rem; font-weight: 600; box-shadow: 0 0 10px var(--accent-glow); transition: transform 0.2s; display: inline-block;">Deep-Dive 2D Conics ✨</a>
             </div>
             
             <div class="control-group">
@@ -47,7 +49,7 @@
             <div class="control-group">
                 <label for="plane-angle">Plane Pitch (X Rot)</label>
                 <div class="slider-container">
-                    <input type="range" id="plane-angle" min="0" max="90" value="30" step="1">
+                    <input type="range" id="plane-angle" min="0" max="180" value="30" step="1">
                     <span id="plane-angle-val" class="value-display">30°</span>
                 </div>
             </div>
@@ -55,7 +57,7 @@
             <div class="control-group">
                 <label for="plane-angle-z">Plane Yaw (Compass Rot)</label>
                 <div class="slider-container">
-                    <input type="range" id="plane-angle-z" min="-90" max="90" value="0" step="1">
+                    <input type="range" id="plane-angle-z" min="-180" max="180" value="0" step="1">
                     <span id="plane-angle-z-val" class="value-display">0°</span>
                 </div>
             </div>
@@ -107,9 +109,8 @@
             </details>
 
             <div class="info-card">
-                <h3>Current Shape</h3>
                 <div id="shape-type" class="shape-type-display">Ellipse</div>
-                <div id="equation-display" style="margin-top: 15px; font-size: 0.85rem; color: var(--text-primary); text-shadow: 0 0 10px rgba(255,255,255,0.2); overflow-x: auto; white-space: nowrap; padding-bottom: 5px;"></div>
+                <div id="equation-display" style="margin-top: 15px; font-size: 0.85rem; color: var(--text-primary); text-shadow: 0 0 10px rgba(255,255,255,0.2); word-wrap: break-word; white-space: normal; line-height: 1.4; padding-bottom: 5px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;"></div>
             </div>
         </div>
     </div>
@@ -438,46 +439,58 @@
             displays.shapeType.textContent = type;
             displays.shapeType.style.color = color;
             displays.shapeType.style.textShadow = `0 0 15px ${color}80`;
-            
+
+            // Format equation in two rows if needed without scrollbar
+            // Row 1: Quadratic terms: A x^2 + B xy + C y^2
+            // Row 2: Linear and constant terms: + D x + E y + F = 0
             const formatTermLatex = (coef, varStr, isFirst) => {
                 if (Math.abs(coef) < 0.001) return "";
                 const sign = coef < 0 ? " - " : (isFirst ? "" : " + ");
                 const val = Math.abs(coef).toFixed(2);
                 return `${sign}${val}${varStr}`;
             };
-            
-            let eq = "";
-            let first = true;
-            const terms = [
-                {c: A, str: "x^2"},
-                {c: B, str: "xy"},
-                {c: C, str: "y^2"},
-                {c: D, str: "x"},
-                {c: E, str: "y"},
-                {c: F, str: ""}
-            ];
-            
-            terms.forEach(t => {
-                if (Math.abs(t.c) > 0.001) {
-                    eq += formatTermLatex(t.c, t.str, first);
-                    first = false;
+
+            let row1 = "";
+            let first1 = true;
+            if (Math.abs(A) > 0.001) { row1 += formatTermLatex(A, "x^2", first1); first1 = false; }
+            if (Math.abs(B) > 0.001) { row1 += formatTermLatex(B, "xy", first1); first1 = false; }
+            if (Math.abs(C) > 0.001) { row1 += formatTermLatex(C, "y^2", first1); first1 = false; }
+
+            let row2 = "";
+            let first2 = true;
+            if (Math.abs(D) > 0.001) { row2 += formatTermLatex(D, "x", first2); first2 = false; }
+            if (Math.abs(E) > 0.001) { row2 += formatTermLatex(E, "y", first2); first2 = false; }
+            if (Math.abs(F) > 0.001) { row2 += formatTermLatex(F, "", first2); first2 = false; }
+
+            // Ensure "= 0" is on row 2
+            if (row2 === "") {
+                if (row1 === "") {
+                    row2 = "0 = 0";
+                } else {
+                    row2 = "= 0";
                 }
-            });
-            
-            if (eq === "") eq = "0";
-            eq += " = 0";
-            
-            if (window.katex && displays.equation) {
-                katex.render(eq, displays.equation, { throwOnError: false, displayMode: true });
-            } else if (displays.equation) {
-                displays.equation.textContent = eq;
+            } else {
+                row2 += " = 0";
             }
-            
+
+            if (window.katex && displays.equation) {
+                displays.equation.innerHTML = "";
+                const div1 = document.createElement("div");
+                katex.render(row1 || "0", div1, { throwOnError: false, displayMode: false });
+                displays.equation.appendChild(div1);
+
+                const div2 = document.createElement("div");
+                katex.render(row2, div2, { throwOnError: false, displayMode: false });
+                displays.equation.appendChild(div2);
+            } else if (displays.equation) {
+                displays.equation.textContent = (row1 ? row1 + "\n" : "") + row2;
+            }
+
             const deepDiveLink = document.getElementById('deep-dive-link');
             if (deepDiveLink) {
                 deepDiveLink.href = `conic-details.html?A=${A}&B=${B}&C=${C}&D=${D}&E=${E}&F=${F}`;
             }
-            
+
             return type;
         }
 
