@@ -456,9 +456,10 @@
             // Row 1: Quadratic terms: A x^2 + B xy + C y^2
             // Row 2: Linear and constant terms: + D x + E y + F = 0
             const formatTermLatex = (coef, varStr, isFirst) => {
-                if (Math.abs(coef) < 0.001) return "";
-                const sign = coef < 0 ? " - " : (isFirst ? "" : " + ");
-                const val = Math.abs(coef).toFixed(2);
+                const rounded = Math.round(coef * 100) / 100;
+                if (Math.abs(rounded) < 0.01) return "";
+                const sign = rounded < 0 ? " - " : (isFirst ? "" : " + ");
+                const val = Math.abs(rounded).toFixed(2);
                 return `${sign}${val}${varStr}`;
             };
 
