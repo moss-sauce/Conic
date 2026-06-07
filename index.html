@@ -295,17 +295,15 @@
                 const den = normal.dot(gTop);
                 
                 if (Math.abs(den) < 1e-6) {
-                    if (Math.abs(O.y) < 1e-5) {
-                        const p1 = gTop.clone().multiplyScalar(20);
-                        const p2 = gTop.clone().multiplyScalar(-20);
-                        branches3D.push([p1, p2]);
-                        
-                        const u1 = p1.clone().sub(O).dot(xAxis);
-                        const v1 = p1.clone().sub(O).dot(yAxis);
-                        const u2 = p2.clone().sub(O).dot(xAxis);
-                        const v2 = p2.clone().sub(O).dot(yAxis);
-                        branches.push([new THREE.Vector2(u1, v1), new THREE.Vector2(u2, v2)]);
-                    }
+                    const p1 = gTop.clone().multiplyScalar(20);
+                    const p2 = gTop.clone().multiplyScalar(-20);
+                    branches3D.push([p1, p2]);
+                    
+                    const u1 = p1.clone().sub(O).dot(xAxis);
+                    const v1 = p1.clone().sub(O).dot(yAxis);
+                    const u2 = p2.clone().sub(O).dot(xAxis);
+                    const v2 = p2.clone().sub(O).dot(yAxis);
+                    branches.push([new THREE.Vector2(u1, v1), new THREE.Vector2(u2, v2)]);
                     if (currentBranch.length > 0) {
                         branches.push(currentBranch);
                         branches3D.push(currentBranch3D);
