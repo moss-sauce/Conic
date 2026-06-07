@@ -316,7 +316,8 @@
                 
                 const t = normal.dot(O) / den;
                 
-                if (Math.abs(t) > 100) {
+                // Allow tracing points further away but clip properly
+                if (Math.abs(t) > 150) {
                     if (currentBranch.length > 0) {
                         branches.push(currentBranch);
                         branches3D.push(currentBranch3D);
@@ -420,19 +421,32 @@
             let type = "";
             let color = "";
 
-            if (Math.abs(h) < 0.1) {
-                if (delta < -tol) { type = "Point"; color = "#10b981"; }
-                else if (delta > tol) { type = "Intersecting Lines"; color = "#ef4444"; }
-                else { type = "Line"; color = "#f59e0b"; }
+            // A degenerate conic happens when the cutting plane passes through the vertex of the cone (h = 0).
+            // We use a small threshold to catch values close to 0.
+            if (Math.abs(h) < 0.05) {
+                if (delta < -0.01) { 
+                    type = "Point (Degenerate)"; 
+                    color = "#10b981"; 
+                } else if (delta > 0.01) { 
+                    type = "Intersecting Lines (Degenerate)"; 
+                    color = "#ef4444"; 
+                } else { 
+                    type = "Single Line (Degenerate)"; 
+                    color = "#f59e0b"; 
+                }
             } else {
-                if (Math.abs(A - C) < tol && Math.abs(B) < tol) {
-                    type = "Circle"; color = "#10b981";
-                } else if (delta < -tol) {
-                    type = "Ellipse"; color = "#3b82f6";
-                } else if (delta > tol) {
-                    type = "Hyperbola"; color = "#ef4444";
+                if (Math.abs(A - C) < 0.05 && Math.abs(B) < 0.05) {
+                    type = "Circle"; 
+                    color = "#10b981";
+                } else if (delta < -0.05) {
+                    type = "Ellipse"; 
+                    color = "#3b82f6";
+                } else if (delta > 0.05) {
+                    type = "Hyperbola"; 
+                    color = "#ef4444";
                 } else {
-                    type = "Parabola"; color = "#f59e0b";
+                    type = "Parabola"; 
+                    color = "#f59e0b";
                 }
             }
 
