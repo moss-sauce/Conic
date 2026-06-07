@@ -403,11 +403,12 @@ function drawGrid() {
 function updateMath(c, card) {
     const A = c.A, B = c.B, C = c.C, D = c.D, E = c.E, F = c.F;
     const term = (coef, v, first) => {
-        if (coef === 0) return '';
+        const rounded = Math.round(coef * 100) / 100;
+        if (rounded === 0) return '';
         let str = '';
-        if (coef < 0) str = ' - ';
+        if (rounded < 0) str = ' - ';
         else if (!first) str = ' + ';
-        let val = Math.abs(coef);
+        let val = Math.abs(rounded);
         if (val !== 1 || v === '') str += val;
         str += v;
         return str;
