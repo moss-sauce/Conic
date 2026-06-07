@@ -275,10 +275,11 @@
             const V = new THREE.Vector3(0, 1, 0).applyMatrix4(m);
             const normal = new THREE.Vector3(0, 0, 1).applyMatrix4(m);
             
-            // Reverse rotation direction to match 3D visually
-            const rYaw = -yaw;
-            const xAxis = U.clone().multiplyScalar(Math.cos(rYaw)).add(V.clone().multiplyScalar(Math.sin(rYaw)));
-            const yAxis = U.clone().multiplyScalar(-Math.sin(rYaw)).add(V.clone().multiplyScalar(Math.cos(rYaw)));
+            // Calculate plane local axes xAxis and yAxis properly.
+            // normal is the normal vector to the cutting plane.
+            // We project standard directions or construct orthonormal local frame axes.
+            const xAxis = new THREE.Vector3(1, 0, 0).applyMatrix4(m);
+            const yAxis = new THREE.Vector3(0, 1, 0).applyMatrix4(m);
             
             const k = Math.tan(state.coneAngle * Math.PI / 180);
             const steps = 720;
@@ -396,9 +397,8 @@
             const U = new THREE.Vector3(1, 0, 0).applyMatrix4(m);
             const V = new THREE.Vector3(0, 1, 0).applyMatrix4(m);
             
-            const rYaw = -yaw;
-            const xAxis = U.clone().multiplyScalar(Math.cos(rYaw)).add(V.clone().multiplyScalar(Math.sin(rYaw)));
-            const yAxis = U.clone().multiplyScalar(-Math.sin(rYaw)).add(V.clone().multiplyScalar(Math.cos(rYaw)));
+            const xAxis = new THREE.Vector3(1, 0, 0).applyMatrix4(m);
+            const yAxis = new THREE.Vector3(0, 1, 0).applyMatrix4(m);
             
             const Xu = xAxis.x, Yu = xAxis.y, Zu = xAxis.z;
             const Xv = yAxis.x, Yv = yAxis.y, Zv = yAxis.z;
@@ -422,8 +422,8 @@
             let color = "";
 
             // A degenerate conic happens when the cutting plane passes through the vertex of the cone (h = 0).
-            // We use a small threshold to catch values close to 0.
-            if (Math.abs(h) < 0.05) {
+            // We use a threshold relative to the overall scale to capture this.
+            if (Math.abs(h) < 0.15) {
                 if (delta < -0.01) { 
                     type = "Point (Degenerate)"; 
                     color = "#10b981"; 
