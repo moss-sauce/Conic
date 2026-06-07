@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conic Section Visualizer</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- 3D Visualization Area -->
+        <div class="view-panel" id="view-3d">
+            <div class="panel-header">
+                <h2>3D Intersection</h2>
+                <p>Axes: <strong style="color:#ef4444">X</strong>, <strong style="color:#22c55e">Y (Up)</strong>, <strong style="color:#3b82f6">Z</strong></p>
+            </div>
+            <canvas id="canvas-3d"></canvas>
+        </div>
+
+        <!-- 2D Visualization Area -->
+        <div class="view-panel" id="view-2d">
+            <div class="panel-header">
+                <h2>2D Graph</h2>
+                <p>The resulting conic section</p>
+            </div>
+            <canvas id="canvas-2d"></canvas>
+        </div>
+
+        <!-- Controls Area -->
+        <div class="controls-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h2 style="margin-bottom: 0;">Parameters</h2>
+                <a href="conic-details.html" id="deep-dive-link" style="background: var(--accent-color); color: white; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 0.875rem; font-weight: 600; box-shadow: 0 0 10px var(--accent-glow); transition: transform 0.2s; display: inline-block;">Deep-Dive 2D Conics ✨</a>
+            </div>
+            
+            <div class="control-group">
+                <label for="cone-angle">Cone Angle (α)</label>
+                <div class="slider-container">
+                    <input type="range" id="cone-angle" min="10" max="80" value="45" step="1">
+                    <span id="cone-angle-val" class="value-display">45°</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label for="plane-angle">Plane Pitch (X Rot)</label>
+                <div class="slider-container">
+                    <input type="range" id="plane-angle" min="0" max="90" value="30" step="1">
+                    <span id="plane-angle-val" class="value-display">30°</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label for="plane-angle-z">Plane Yaw (Compass Rot)</label>
+                <div class="slider-container">
+                    <input type="range" id="plane-angle-z" min="-90" max="90" value="0" step="1">
+                    <span id="plane-angle-z-val" class="value-display">0°</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label for="plane-height">Plane Height (h)</label>
+                <div class="slider-container">
+                    <input type="range" id="plane-height" min="-5" max="5" value="1.5" step="0.1">
+                    <span id="plane-height-val" class="value-display">1.5</span>
+                </div>
+            </div>
+
+            <details class="settings-group">
+                <summary>Appearance Settings</summary>
+                <div class="settings-content">
+                    <div class="color-picker-group">
+                        <label>Cone Color</label>
+                        <input type="color" id="color-cone" value="#3b82f6">
+                    </div>
+                    <div class="color-picker-group">
+                        <label>Plane Color</label>
+                        <input type="color" id="color-plane" value="#a78bfa">
+                    </div>
+                    <div class="color-picker-group">
+                        <label>Intersection Line</label>
+                        <input type="color" id="color-line" value="#ffffff">
+                    </div>
+                    <div class="color-picker-group">
+                        <label>Accent (Sliders)</label>
+                        <input type="color" id="color-accent" value="#3b82f6">
+                    </div>
+                    <div class="color-picker-group">
+                        <label>Global Background</label>
+                        <input type="color" id="color-bg" value="#0f172a">
+                    </div>
+                    <div class="color-picker-group">
+                        <label>Panel Background</label>
+                        <input type="color" id="color-panel" value="#1e293b">
+                    </div>
+                    <div class="color-picker-group">
+                        <label>2D Canvas Bg</label>
+                        <input type="color" id="color-2dbg" value="#000000">
+                    </div>
+                    <div class="color-picker-group">
+                        <label>Grid Color</label>
+                        <input type="color" id="color-grid" value="#1e293b">
+                    </div>
+                </div>
+            </details>
+
+            <div class="info-card">
+                <h3>Current Shape</h3>
+                <div id="shape-type" class="shape-type-display">Ellipse</div>
+                <div id="equation-display" style="margin-top: 15px; font-size: 0.85rem; color: var(--text-primary); text-shadow: 0 0 10px rgba(255,255,255,0.2); overflow-x: auto; white-space: nowrap; padding-bottom: 5px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Map for ES Modules -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- State ---
+        const state = {
+            coneAngle: 45,
+            planeAngle: 30,
+            planeAngleZ: 0,
+            planeHeight: 1.5,
+            lineColor: '#ffffff',
+        };
+
+        // --- Elements ---
+        const canvas3D = document.getElementById('canvas-3d');
+        const canvas2D = document.getElementById('canvas-2d');
+        const ctx2D = canvas2D.getContext('2d');
+
+        const inputs = {
+            coneAngle: document.getElementById('cone-angle'),
+            planeAngle: document.getElementById('plane-angle'),
+            planeAngleZ: document.getElementById('plane-angle-z'),
+            planeHeight: document.getElementById('plane-height'),
+        };
+
+        const displays = {
+            coneAngle: document.getElementById('cone-angle-val'),
+            planeAngle: document.getElementById('plane-angle-val'),
+            planeAngleZ: document.getElementById('plane-angle-z-val'),
+            planeHeight: document.getElementById('plane-height-val'),
+            shapeType: document.getElementById('shape-type'),
+            equation: document.getElementById('equation-display'),
+        };
+
+        const colorInputs = {
+            cone: document.getElementById('color-cone'),
+            plane: document.getElementById('color-plane'),
+            line: document.getElementById('color-line'),
+            accent: document.getElementById('color-accent'),
+            bg: document.getElementById('color-bg'),
+            panel: document.getElementById('color-panel'),
+            canvas2d: document.getElementById('color-2dbg'),
+            grid: document.getElementById('color-grid')
+        };
+
+        // --- 3D Setup ---
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas3D, antialias: true, alpha: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.localClippingEnabled = true;
+
+        const scene = new THREE.Scene();
+
+        const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+        camera.position.set(10, 5, 10);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(5, 10, 7);
+        scene.add(dirLight);
+
+        const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.5);
+        dirLight2.position.set(-5, -10, -7);
+        scene.add(dirLight2);
+
+        // Objects
+        const coneMaterial = new THREE.MeshPhysicalMaterial({
+            color: 0x3b82f6,
+            metalness: 0.1,
+            roughness: 0.5,
+            transparent: true,
+            opacity: 0.8,
+            side: THREE.DoubleSide,
+        });
+
+        const planeMaterial = new THREE.MeshPhysicalMaterial({
+            color: 0xa78bfa,
+            metalness: 0.2,
+            roughness: 0.2,
+            transparent: true,
+            opacity: 0.5,
+            side: THREE.DoubleSide,
+        });
+
+        let coneGroup = new THREE.Group();
+        scene.add(coneGroup);
+
+        let meshTop, meshBottom;
+        function initCones() {
+            const height = 10;
+            const radius = height; // base radius at 45 degrees (tan(45) = 1)
+            
+            const geoTop = new THREE.CylinderGeometry(radius, 0, height, 64, 1, true);
+            geoTop.translate(0, height / 2, 0);
+            meshTop = new THREE.Mesh(geoTop, coneMaterial);
+            
+            const geoBottom = new THREE.CylinderGeometry(0, radius, height, 64, 1, true);
+            geoBottom.translate(0, -height / 2, 0);
+            meshBottom = new THREE.Mesh(geoBottom, coneMaterial);
+            
+            coneGroup.add(meshTop);
+            coneGroup.add(meshBottom);
+        }
+        initCones();
+
+        let cuttingPlaneMesh = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), planeMaterial);
+        scene.add(cuttingPlaneMesh);
+
+        let intersectionLineGroup = new THREE.Group();
+        scene.add(intersectionLineGroup);
+
+        let gridHelper = new THREE.GridHelper(20, 20, 0x334155, 0x1e293b);
+        scene.add(gridHelper);
+
+        const axesHelper = new THREE.AxesHelper(5);
+        scene.add(axesHelper);
+
+        // --- Functions ---
+        function resize() {
+            const rect3D = canvas3D.parentElement.getBoundingClientRect();
+            renderer.setSize(rect3D.width, rect3D.height);
+            camera.aspect = rect3D.width / rect3D.height;
+            camera.updateProjectionMatrix();
+
+            const rect2D = canvas2D.parentElement.getBoundingClientRect();
+            canvas2D.width = rect2D.width;
+            canvas2D.height = rect2D.height;
+            
+            draw2D();
+        }
+
+        function getIntersectionPoints() {
+            const O = new THREE.Vector3(0, state.planeHeight, 0);
+            
+            const pitch = -Math.PI / 2 - state.planeAngle * Math.PI / 180;
+            const yaw = -state.planeAngleZ * Math.PI / 180;
+            const qX = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0), pitch);
+            const qY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), yaw);
+            const quaternion = new THREE.Quaternion().copy(qY).multiply(qX);
+            
+            const m = new THREE.Matrix4().makeRotationFromQuaternion(quaternion);
+            const U = new THREE.Vector3(1, 0, 0).applyMatrix4(m);
+            const V = new THREE.Vector3(0, 1, 0).applyMatrix4(m);
+            const normal = new THREE.Vector3(0, 0, 1).applyMatrix4(m);
+            
+            // Reverse rotation direction to match 3D visually
+            const rYaw = -yaw;
+            const xAxis = U.clone().multiplyScalar(Math.cos(rYaw)).add(V.clone().multiplyScalar(Math.sin(rYaw)));
+            const yAxis = U.clone().multiplyScalar(-Math.sin(rYaw)).add(V.clone().multiplyScalar(Math.cos(rYaw)));
+            
+            const k = Math.tan(state.coneAngle * Math.PI / 180);
+            const steps = 720;
+            
+            let currentBranch = [];
+            let currentBranch3D = [];
+            const branches = [];
+            const branches3D = [];
+            
+            for(let i=0; i<=steps; i++) {
+                const theta = (i % steps) * Math.PI * 2 / steps;
+                const gTop = new THREE.Vector3(k * Math.cos(theta), 1, k * Math.sin(theta));
+                const den = normal.dot(gTop);
+                
+                if (Math.abs(den) < 1e-6) {
+                    if (Math.abs(O.y) < 1e-5) {
+                        const p1 = gTop.clone().multiplyScalar(20);
+                        const p2 = gTop.clone().multiplyScalar(-20);
+                        branches3D.push([p1, p2]);
+                        
+                        const u1 = p1.clone().sub(O).dot(xAxis);
+                        const v1 = p1.clone().sub(O).dot(yAxis);
+                        const u2 = p2.clone().sub(O).dot(xAxis);
+                        const v2 = p2.clone().sub(O).dot(yAxis);
+                        branches.push([new THREE.Vector2(u1, v1), new THREE.Vector2(u2, v2)]);
+                    }
+                    if (currentBranch.length > 0) {
+                        branches.push(currentBranch);
+                        branches3D.push(currentBranch3D);
+                        currentBranch = [];
+                        currentBranch3D = [];
+                    }
+                    continue;
+                }
+                
+                const t = normal.dot(O) / den;
+                
+                if (Math.abs(t) > 100) {
+                    if (currentBranch.length > 0) {
+                        branches.push(currentBranch);
+                        branches3D.push(currentBranch3D);
+                        currentBranch = [];
+                        currentBranch3D = [];
+                    }
+                    continue;
+                }
+                
+                const I = gTop.clone().multiplyScalar(t);
+                const I_local = I.clone().sub(O);
+                const u = I_local.dot(xAxis);
+                const v = I_local.dot(yAxis);
+                
+                currentBranch.push(new THREE.Vector2(u, v));
+                currentBranch3D.push(I);
+            }
+            if (currentBranch.length > 0) {
+                branches.push(currentBranch);
+                branches3D.push(currentBranch3D);
+            }
+            
+            if (branches.length > 1) {
+                const first = branches[0][0];
+                const last = branches[branches.length-1][branches[branches.length-1].length-1];
+                if (first.distanceTo(last) < 1.0) {
+                    branches[0] = branches[branches.length-1].concat(branches[0]);
+                    branches.pop();
+                    branches3D[0] = branches3D[branches3D.length-1].concat(branches3D[0]);
+                    branches3D.pop();
+                }
+            }
+            
+            return { branches, branches3D, quaternion };
+        }
+
+        function update3D() {
+            const scaleXZ = Math.tan(state.coneAngle * Math.PI / 180);
+            meshTop.scale.set(scaleXZ, 1, scaleXZ);
+            meshBottom.scale.set(scaleXZ, 1, scaleXZ);
+
+            const { branches3D, quaternion } = getIntersectionPoints();
+            cuttingPlaneMesh.quaternion.copy(quaternion);
+            cuttingPlaneMesh.position.set(0, state.planeHeight, 0);
+
+            intersectionLineGroup.clear();
+            
+            const lineMat = new THREE.LineDashedMaterial({
+                color: state.lineColor,
+                linewidth: 2,
+                scale: 1,
+                dashSize: 0.5,
+                gapSize: 0.3,
+            });
+            
+            branches3D.forEach(branch => {
+                if (branch.length < 2) return;
+                const geo = new THREE.BufferGeometry().setFromPoints(branch);
+                const line = new THREE.Line(geo, lineMat);
+                line.computeLineDistances();
+                intersectionLineGroup.add(line);
+            });
+        }
+
+        function getCoefficients() {
+            const h = state.planeHeight;
+            const k = Math.tan(state.coneAngle * Math.PI / 180);
+            
+            const pitch = -Math.PI / 2 - state.planeAngle * Math.PI / 180;
+            const yaw = -state.planeAngleZ * Math.PI / 180;
+            const qX = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0), pitch);
+            const qY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), yaw);
+            const quaternion = new THREE.Quaternion().copy(qY).multiply(qX);
+            
+            const m = new THREE.Matrix4().makeRotationFromQuaternion(quaternion);
+            const U = new THREE.Vector3(1, 0, 0).applyMatrix4(m);
+            const V = new THREE.Vector3(0, 1, 0).applyMatrix4(m);
+            
+            const rYaw = -yaw;
+            const xAxis = U.clone().multiplyScalar(Math.cos(rYaw)).add(V.clone().multiplyScalar(Math.sin(rYaw)));
+            const yAxis = U.clone().multiplyScalar(-Math.sin(rYaw)).add(V.clone().multiplyScalar(Math.cos(rYaw)));
+            
+            const Xu = xAxis.x, Yu = xAxis.y, Zu = xAxis.z;
+            const Xv = yAxis.x, Yv = yAxis.y, Zv = yAxis.z;
+            
+            const A = Xu*Xu + Zu*Zu - k*k*Yu*Yu;
+            const B = 2 * (Xu*Xv + Zu*Zv - k*k*Yu*Yv);
+            const C = Xv*Xv + Zv*Zv - k*k*Yv*Yv;
+            const D = -2 * k*k * h * Yu;
+            const E = -2 * k*k * h * Yv;
+            const F = -k*k * h*h;
+            
+            return { A, B, C, D, E, F, h };
+        }
+
+        function updateShapeType() {
+            const { A, B, C, D, E, F, h } = getCoefficients();
+            const delta = B*B - 4*A*C;
+            const tol = 0.05;
+            
+            let type = "";
+            let color = "";
+
+            if (Math.abs(h) < 0.1) {
+                if (delta < -tol) { type = "Point"; color = "#10b981"; }
+                else if (delta > tol) { type = "Intersecting Lines"; color = "#ef4444"; }
+                else { type = "Line"; color = "#f59e0b"; }
+            } else {
+                if (Math.abs(A - C) < tol && Math.abs(B) < tol) {
+                    type = "Circle"; color = "#10b981";
+                } else if (delta < -tol) {
+                    type = "Ellipse"; color = "#3b82f6";
+                } else if (delta > tol) {
+                    type = "Hyperbola"; color = "#ef4444";
+                } else {
+                    type = "Parabola"; color = "#f59e0b";
+                }
+            }
+
+            displays.shapeType.textContent = type;
+            displays.shapeType.style.color = color;
+            displays.shapeType.style.textShadow = `0 0 15px ${color}80`;
+            
+            const formatTermLatex = (coef, varStr, isFirst) => {
+                if (Math.abs(coef) < 0.001) return "";
+                const sign = coef < 0 ? " - " : (isFirst ? "" : " + ");
+                const val = Math.abs(coef).toFixed(2);
+                return `${sign}${val}${varStr}`;
+            };
+            
+            let eq = "";
+            let first = true;
+            const terms = [
+                {c: A, str: "x^2"},
+                {c: B, str: "xy"},
+                {c: C, str: "y^2"},
+                {c: D, str: "x"},
+                {c: E, str: "y"},
+                {c: F, str: ""}
+            ];
+            
+            terms.forEach(t => {
+                if (Math.abs(t.c) > 0.001) {
+                    eq += formatTermLatex(t.c, t.str, first);
+                    first = false;
+                }
+            });
+            
+            if (eq === "") eq = "0";
+            eq += " = 0";
+            
+            if (window.katex && displays.equation) {
+                katex.render(eq, displays.equation, { throwOnError: false, displayMode: true });
+            } else if (displays.equation) {
+                displays.equation.textContent = eq;
+            }
+            
+            const deepDiveLink = document.getElementById('deep-dive-link');
+            if (deepDiveLink) {
+                deepDiveLink.href = `conic-details.html?A=${A}&B=${B}&C=${C}&D=${D}&E=${E}&F=${F}`;
+            }
+            
+            return type;
+        }
+
+        function draw2D() {
+            ctx2D.clearRect(0, 0, canvas2D.width, canvas2D.height);
+            
+            const w = canvas2D.width;
+            const h = canvas2D.height;
+            const cx = w / 2;
+            const cy = h / 2;
+            
+            ctx2D.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx2D.lineWidth = 1;
+            ctx2D.beginPath();
+            for (let i = 0; i < w; i += 20) { ctx2D.moveTo(i, 0); ctx2D.lineTo(i, h); }
+            for (let i = 0; i < h; i += 20) { ctx2D.moveTo(0, i); ctx2D.lineTo(w, i); }
+            ctx2D.stroke();
+
+            // X Axis
+            ctx2D.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+            ctx2D.lineWidth = 2;
+            ctx2D.beginPath();
+            ctx2D.moveTo(0, cy); ctx2D.lineTo(w, cy);
+            ctx2D.stroke();
+
+            // Y Axis
+            ctx2D.strokeStyle = 'rgba(59, 130, 246, 0.4)';
+            ctx2D.beginPath();
+            ctx2D.moveTo(cx, 0); ctx2D.lineTo(cx, h);
+            ctx2D.stroke();
+
+            ctx2D.fillStyle = 'rgba(239, 68, 68, 0.8)';
+            ctx2D.font = 'bold 12px Inter';
+            ctx2D.fillText("X (Red)", w - 55, cy - 10);
+            
+            ctx2D.fillStyle = 'rgba(59, 130, 246, 0.8)';
+            ctx2D.fillText("Y (Blue)", cx + 10, 15);
+
+            const scale = 20;
+            
+            ctx2D.save();
+            ctx2D.translate(cx, cy);
+            ctx2D.scale(1, -1);
+            
+            const color = displays.shapeType.style.color || '#ffffff';
+            ctx2D.strokeStyle = color;
+            ctx2D.lineWidth = 3;
+            ctx2D.lineJoin = 'round';
+            
+            const { branches } = getIntersectionPoints();
+            
+            ctx2D.beginPath();
+            branches.forEach(branch => {
+                if (branch.length < 2) return;
+                ctx2D.moveTo(branch[0].x * scale, branch[0].y * scale);
+                for (let i = 1; i < branch.length; i++) {
+                    ctx2D.lineTo(branch[i].x * scale, branch[i].y * scale);
+                }
+            });
+            ctx2D.stroke();
+            
+            ctx2D.shadowBlur = 10;
+            ctx2D.shadowColor = color;
+            ctx2D.stroke();
+            
+            ctx2D.restore();
+        }
+
+        // --- Event Listeners ---
+        function onInput(e) {
+            const id = e.target.id;
+            const val = parseFloat(e.target.value);
+            
+            if (id === 'cone-angle') {
+                state.coneAngle = val;
+                displays.coneAngle.textContent = val + '°';
+            } else if (id === 'plane-angle') {
+                state.planeAngle = val;
+                displays.planeAngle.textContent = val + '°';
+            } else if (id === 'plane-angle-z') {
+                state.planeAngleZ = val;
+                displays.planeAngleZ.textContent = val + '°';
+            } else if (id === 'plane-height') {
+                state.planeHeight = val;
+                displays.planeHeight.textContent = val;
+            }
+            
+            update3D();
+            updateShapeType();
+            draw2D();
+        }
+
+        function onColorInput(e) {
+            const id = e.target.id;
+            const val = e.target.value;
+            
+            if (id === 'color-cone') {
+                coneMaterial.color.set(val);
+            } else if (id === 'color-plane') {
+                planeMaterial.color.set(val);
+            } else if (id === 'color-line') {
+                state.lineColor = val;
+                update3D();
+            } else if (id === 'color-accent') {
+                document.documentElement.style.setProperty('--accent-color', val);
+                document.documentElement.style.setProperty('--accent-glow', val + '80');
+                updateShapeType(); // triggers re-render of shape glow
+            } else if (id === 'color-bg') {
+                document.body.style.background = val;
+            } else if (id === 'color-panel') {
+                document.documentElement.style.setProperty('--panel-bg', val + 'b3');
+            } else if (id === 'color-2dbg') {
+                document.getElementById('canvas-2d').style.backgroundColor = val + '33';
+            } else if (id === 'color-grid') {
+                scene.remove(gridHelper);
+                gridHelper = new THREE.GridHelper(20, 20, 0x334155, val);
+                scene.add(gridHelper);
+            }
+            renderer.render(scene, camera);
+            draw2D();
+        }
+
+        Object.values(inputs).forEach(input => {
+            input.addEventListener('input', onInput);
+        });
+
+        Object.values(colorInputs).forEach(input => {
+            input.addEventListener('input', onColorInput);
+        });
+
+        window.addEventListener('resize', resize);
+
+        // --- Animation Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // --- Initialization ---
+        resize();
+        update3D();
+        // Delay initial equation render slightly to ensure KaTeX has loaded from CDN
+        setTimeout(updateShapeType, 100);
+        draw2D();
+        animate();
+    </script>
+</body>
+</html>

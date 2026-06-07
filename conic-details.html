@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D Conic Details</title>
+    <link rel="stylesheet" href="conic-details.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+</head>
+<body>
+    <canvas id="graph-canvas"></canvas>
+<div id="board-toolbar">
+    <button id="fullscreen-btn" title="Enter Full‑Screen">⛶</button>
+    <label style="font-size:0.75rem; color:#94a3b8;">
+        <input type="checkbox" id="presentation-mode"> Presentation
+    </label>
+</div>
+
+    <!-- Side Panel -->
+    <div id="side-panel" class="side-panel open">
+        <div class="panel-header">
+            <a href="index.html" class="back-btn">← Back</a>
+            <h2>Conic Analyzer</h2>
+            <button id="toggle-panel" class="toggle-btn">◀</button>
+        </div>
+
+        <div class="panel-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <div class="section-title" style="margin: 0;">Equations</div>
+            </div>
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <button id="add-conic-btn" style="flex: 1; padding: 10px; background: var(--accent-color); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s;">+ Add Conic</button>
+            </div>
+            <div id="conics-container"></div>
+
+
+            <details class="settings-group" style="margin-top: 20px;">
+                <summary>Appearance Settings</summary>
+                <div class="settings-content">
+                    <div class="color-picker-group">
+                        <label>Curve Color</label>
+                        <input type="color" id="color-curve" value="#3b82f6">
+                    </div>
+                    <div class="color-picker-group">
+                        <label>Background</label>
+                        <input type="color" id="color-bg" value="#0f172a">
+                    </div>
+                    <div class="color-picker-group">
+                        <label>Grid Line</label>
+                        <input type="color" id="color-grid" value="#1e293b">
+                    </div>
+                    <div class="color-picker-group">
+                        <label>Axis Line</label>
+                        <input type="color" id="color-axis" value="#334155">
+                    </div>
+                    <div class="color-picker-group">
+                        <label>Text / Labels</label>
+                        <input type="color" id="color-text" value="#94a3b8">
+                    </div>
+                    <div class="color-picker-group">
+                        <label>Panel Bg</label>
+                        <input type="color" id="color-panel" value="#1e293b">
+                    </div>
+                </div>
+            </details>
+        </div>
+    </div>
+
+    <!-- Closed Panel Button (visible when panel is hidden) -->
+    <button id="open-panel" class="toggle-btn hidden">▶</button>
+
+
+    <button id="open-geo-panel" style="background: var(--accent-color);">Geometry Tools ✨</button>
+    <div id="geometry-panel" class="hidden">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="margin: 0; font-size: 1.25rem;">Geometry Tools</h2>
+            <button id="toggle-geo-panel">&times;</button>
+        </div>
+        <button id="add-point-btn" style="width: 100%; padding: 10px; background: #64748b; color: white; border: none; border-radius: 8px; font-weight: 600; margin-bottom: 20px; cursor: pointer; transition: 0.2s;">+ Add Point</button>
+        <div id="points-container"></div>
+    </div>
+    <script src="conic-details.js"></script>
+</body>
+</html>

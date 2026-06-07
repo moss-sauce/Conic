@@ -1,0 +1,371 @@
+:root {
+    --bg-color: #0f172a;
+    --panel-bg: rgba(30, 41, 59, 0.85);
+    --panel-border: rgba(255, 255, 255, 0.1);
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --accent-color: #3b82f6;
+    --accent-glow: rgba(59, 130, 246, 0.5);
+    
+    --grid-color: #1e293b;
+    --axis-color: #334155;
+    --text-color: #94a3b8;
+    --curve-color: #3b82f6;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-primary);
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+}
+
+canvas#graph-canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 1;
+    cursor: grab;
+}
+canvas#graph-canvas:active { cursor: grabbing; }
+
+/* Sidebar */
+.side-panel {
+    position: absolute;
+    top: 20px; left: 20px;
+    width: 380px;
+    height: calc(100vh - 40px);
+    background: var(--panel-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--panel-border);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    resize: horizontal;
+    overflow: hidden;
+    min-width: 320px;
+    max-width: 80vw;
+}
+
+.side-panel:not(.open) {
+    transform: translateX(calc(-100% - 20px));
+}
+
+.panel-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--panel-border);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.back-btn {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: color 0.2s;
+}
+.back-btn:hover { color: var(--text-primary); }
+
+.panel-header h2 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    background: -webkit-linear-gradient(45deg, #60a5fa, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0;
+}
+
+.toggle-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 4px;
+    transition: color 0.2s;
+}
+.toggle-btn:hover { color: var(--text-primary); }
+
+#open-panel {
+    position: absolute;
+    top: 20px; left: 20px;
+    z-index: 5;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    backdrop-filter: blur(16px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+#open-panel.hidden { display: none; }
+
+.panel-content {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.panel-content::-webkit-scrollbar { width: 6px; }
+.panel-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+/* Equation */
+.equation-container {
+    background: rgba(0,0,0,0.3);
+    border-radius: 8px;
+    padding: 15px;
+    text-align: center;
+    margin-bottom: 20px;
+    border: 1px solid var(--panel-border);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.freeform-input {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--text-primary);
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 1rem;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+}
+.freeform-input:focus {
+    border-color: var(--accent-color);
+}
+
+.advanced-coefficients summary {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    margin: 10px 0 10px 0;
+    font-weight: 600;
+}
+
+.section-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    margin: 20px 0 10px 0;
+    font-weight: 600;
+}
+
+.action-btn {
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.action-btn:hover { background: #2563eb; }
+
+/* Conic Cards */
+.conic-card {
+    background: rgba(0,0,0,0.2);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 15px;
+    border-left: 4px solid var(--accent-color);
+}
+
+.conic-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.delete-btn {
+    background: transparent;
+    border: none;
+    color: #ef4444;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: color 0.2s;
+}
+.delete-btn:hover { color: #dc2626; }
+
+/* Input Grid */
+.input-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+.input-item {
+    display: flex;
+    flex-direction: column;
+    background: rgba(255,255,255,0.05);
+    border-radius: 6px;
+    padding: 8px;
+    border: 1px solid rgba(255,255,255,0.05);
+}
+.input-item label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+.input-item input {
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-family: monospace;
+    font-size: 1rem;
+    width: 100%;
+    outline: none;
+}
+
+/* Checkboxes */
+.toggle-list { display: flex; flex-direction: column; gap: 8px; }
+.checkbox-container {
+    display: flex; align-items: center;
+    font-size: 0.875rem; color: var(--text-primary);
+    cursor: pointer; user-select: none;
+}
+.checkbox-container input { display: none; }
+.checkmark {
+    width: 16px; height: 16px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--panel-border);
+    border-radius: 4px; margin-right: 10px;
+    position: relative; transition: all 0.2s;
+}
+.checkbox-container input:checked ~ .checkmark {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+}
+.checkbox-container input:checked ~ .checkmark::after {
+    content: ''; position: absolute;
+    left: 4px; top: 1px; width: 4px; height: 8px;
+    border: solid white; border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+/* Properties List */
+.properties-list {
+    background: rgba(15, 23, 42, 0.4);
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid var(--panel-border);
+}
+.property-item {
+    display: flex; justify-content: space-between;
+    margin-bottom: 8px; padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.property-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+.prop-label { font-size: 0.875rem; color: var(--text-secondary); }
+.prop-value { font-size: 0.875rem; color: var(--text-primary); font-family: monospace; }
+
+/* Details/Summary */
+.details-section { margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px; }
+details { margin-bottom: 4px; }
+summary {
+    font-size: 0.75rem; color: var(--text-secondary);
+    cursor: pointer; outline: none; font-weight: 600;
+}
+.details-content {
+    font-size: 0.75rem; color: var(--text-primary); font-family: monospace;
+    padding: 6px; background: rgba(0,0,0,0.2); border-radius: 4px; margin-top: 4px;
+    white-space: pre-line;
+}
+
+/* Inline Toggles (Conic Card) */
+.inline-toggles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.inline-toggle {
+    display: flex;
+    align-items: center;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    background: rgba(255,255,255,0.05);
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.05);
+    transition: all 0.2s;
+}
+.inline-toggle input { display: none; }
+.inline-toggle.active {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: var(--accent-color);
+    color: var(--text-primary);
+}
+
+/* Color Pickers */
+.settings-group {
+    background: rgba(0,0,0,0.2); border-radius: 8px;
+    padding: 12px; border: 1px solid var(--panel-border);
+}
+.settings-group summary { font-size: 0.875rem; font-weight: 600; color: var(--text-secondary); }
+.settings-content {
+    margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.color-picker-group { display: flex; flex-direction: column; gap: 4px; }
+.color-picker-group label { font-size: 0.75rem; color: var(--text-secondary); }
+input[type="color"] {
+    width: 100%; height: 28px; border: 1px solid var(--panel-border);
+    border-radius: 4px; background: transparent; cursor: pointer; padding: 0;
+}
+input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+input[type="color"]::-webkit-color-swatch { border: none; border-radius: 3px; }
+
+
+#geometry-panel { position: absolute; right: 20px; top: 20px; width: 340px; max-height: calc(100vh - 40px); overflow-y: auto; background: var(--panel-bg); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; z-index: 100; padding: 20px; color: white; display: flex; flex-direction: column; box-shadow: 0 4px 30px rgba(0,0,0,0.5); }
+#geometry-panel.hidden { display: none; }
+#toggle-geo-panel, #open-geo-panel { background: rgba(255,255,255,0.1); border: none; color: white; border-radius: 4px; padding: 5px 10px; cursor: pointer; transition: 0.2s; }
+#toggle-geo-panel:hover, #open-geo-panel:hover { background: rgba(255,255,255,0.2); }
+#open-geo-panel { position: absolute; right: 20px; top: 20px; z-index: 5; border-radius: 8px; padding: 10px 15px; font-weight: 600; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+
+/* --------------------------------------------------------------
+   Board Toolbar – appears in the top‑right corner
+-------------------------------------------------------------- */
+#board-toolbar {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 2000;
+    display: flex;
+    gap: 12px;
+    background: rgba(0,0,0,0.35);
+    padding: 6px 10px;
+    border-radius: 8px;
+    backdrop-filter: blur(8px);
+}
+#board-toolbar button {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 1.4rem;
+    cursor: pointer;
+}
+#board-toolbar label {
+    font-size: 0.85rem;
+    color: #e2e8f0;
+    cursor: pointer;
+}
