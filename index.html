@@ -275,11 +275,13 @@
             const V = new THREE.Vector3(0, 1, 0).applyMatrix4(m);
             const normal = new THREE.Vector3(0, 0, 1).applyMatrix4(m);
             
-            // Calculate plane local axes xAxis and yAxis properly.
-            // normal is the normal vector to the cutting plane.
-            // We project standard directions or construct orthonormal local frame axes.
-            const xAxis = new THREE.Vector3(1, 0, 0).applyMatrix4(m);
-            const yAxis = new THREE.Vector3(0, 1, 0).applyMatrix4(m);
+            // Calculate plane local axes xAxis and yAxis properly by projecting world axes.
+            let xAxis = new THREE.Vector3(1, 0, 0).sub(normal.clone().multiplyScalar(normal.x));
+            if (xAxis.lengthSq() < 1e-4) {
+                xAxis = new THREE.Vector3(0, 1, 0).sub(normal.clone().multiplyScalar(normal.y));
+            }
+            xAxis.normalize();
+            const yAxis = new THREE.Vector3().crossVectors(normal, xAxis).normalize();
             
             const k = Math.tan(state.coneAngle * Math.PI / 180);
             const steps = 720;
@@ -394,9 +396,15 @@
             const m = new THREE.Matrix4().makeRotationFromQuaternion(quaternion);
             const U = new THREE.Vector3(1, 0, 0).applyMatrix4(m);
             const V = new THREE.Vector3(0, 1, 0).applyMatrix4(m);
+            const normal = new THREE.Vector3(0, 0, 1).applyMatrix4(m);
             
-            const xAxis = new THREE.Vector3(1, 0, 0).applyMatrix4(m);
-            const yAxis = new THREE.Vector3(0, 1, 0).applyMatrix4(m);
+            // Calculate plane local axes xAxis and yAxis properly by projecting world axes.
+            let xAxis = new THREE.Vector3(1, 0, 0).sub(normal.clone().multiplyScalar(normal.x));
+            if (xAxis.lengthSq() < 1e-4) {
+                xAxis = new THREE.Vector3(0, 1, 0).sub(normal.clone().multiplyScalar(normal.y));
+            }
+            xAxis.normalize();
+            const yAxis = new THREE.Vector3().crossVectors(normal, xAxis).normalize();
             
             const Xu = xAxis.x, Yu = xAxis.y, Zu = xAxis.z;
             const Xv = yAxis.x, Yv = yAxis.y, Zv = yAxis.z;
@@ -501,7 +509,11 @@
 
             const deepDiveLink = document.getElementById('deep-dive-link');
             if (deepDiveLink) {
-                deepDiveLink.href = `conic-details.html?A=${A}&B=${B}&C=${C}&D=${D}&E=${E}&F=${F}`;
+                deepDiveLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    localStorage.setItem('conic_params', JSON.stringify({ A, B, C, D, E, F }));
+                    window.location.href = 'conic-details.html';
+                });
             }
 
             return type;

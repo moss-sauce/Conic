@@ -59,41 +59,10 @@ let activeLabels = [];
 canvas.addEventListener('mousedown', e => {
     const mouseX = e.clientX;
     const mouseY = e.clientY;
+    const mathX = toMathX(mouseX);
+    const mathY = toMathY(mouseY);
     
-    // Check if clicked near a conic's Foci or Center to toggle its coordinate label
-    let clickedSpecialPoint = false;
-    conics.forEach(c => {
-        if (c.center && c.styles.center.show) {
-            const sx = toScrX(c.center.x);
-            const sy = toScrY(c.center.y);
-            if (Math.hypot(mouseX - sx, mouseY - sy) < 15) {
-                const key = `center-${c.id}`;
-                const idx = activeLabels.indexOf(key);
-                if (idx > -1) activeLabels.splice(idx, 1);
-                else activeLabels.push(key);
-                clickedSpecialPoint = true;
-            }
-        }
-        if (c.foci && c.styles.foci.show) {
-            c.foci.forEach((f, fIdx) => {
-                const sx = toScrX(f.x);
-                const sy = toScrY(f.y);
-                if (Math.hypot(mouseX - sx, mouseY - sy) < 15) {
-                    const key = `focus-${c.id}-${fIdx}`;
-                    const idx = activeLabels.indexOf(key);
-                    if (idx > -1) activeLabels.splice(idx, 1);
-                    else activeLabels.push(key);
-                    clickedSpecialPoint = true;
-                }
-            });
-        }
-    });
-
-    if (clickedSpecialPoint) {
-        requestDraw();
-        return;
-    }
-    
+    // 1. Check if clicked near an interactive geometry point to drag it (highest priority)
     for (let p of points) {
         const sx = toScrX(p.x);
         const sy = toScrY(p.y);
@@ -103,9 +72,192 @@ canvas.addEventListener('mousedown', e => {
         }
     }
     
+    // 2. Check if clicked near a special point (Center, Foci, Vertices, Co-Vertices, Origin)
+    let closestPointKey = null;
+    let closestPointDist = Infinity;
+    
+    const ox = toScrX(0);
+    const oy = toScrY(0);
+    const oDist = Math.hypot(mouseX - ox, mouseY - oy);
+    if (oDist < 15 && oDist < closestPointDist) {
+        closestPointDist = oDist;
+        closestPointKey = 'origin';
+    }
+    
+    conics.forEach(c => {
+        if (c.center && c.styles.center.show) {
+            const sx = toScrX(c.center.x);
+            const sy = toScrY(c.center.y);
+            const dist = Math.hypot(mouseX - sx, mouseY - sy);
+            if (dist < 15 && dist < closestPointDist) {
+                closestPointDist = dist;
+                closestPointKey = `center-${c.id}`;
+            }
+        }
+        if (c.foci && c.styles.foci.show) {
+            c.foci.forEach((f, fIdx) => {
+                const sx = toScrX(f.x);
+                const sy = toScrY(f.y);
+                const dist = Math.hypot(mouseX - sx, mouseY - sy);
+                if (dist < 15 && dist < closestPointDist) {
+                    closestPointDist = dist;
+                    closestPointKey = `focus-${c.id}-${fIdx}`;
+                }
+            });
+        }
+        if (c.vertices) {
+            c.vertices.forEach((v, vIdx) => {
+                const sx = toScrX(v.x);
+                const sy = toScrY(v.y);
+                const dist = Math.hypot(mouseX - sx, mouseY - sy);
+                if (dist < 15 && dist < closestPointDist) {
+                    closestPointDist = dist;
+                    closestPointKey = `vertex-${c.id}-${vIdx}`;
+                }
+            });
+        }
+        if (c.coVertices) {
+            c.coVertices.forEach((v, vIdx) => {
+                const sx = toScrX(v.x);
+                const sy = toScrY(v.y);
+                const dist = Math.hypot(mouseX - sx, mouseY - sy);
+                if (dist < 15 && dist < closestPointDist) {
+                    closestPointDist = dist;
+                    closestPointKey = `covertex-${c.id}-${vIdx}`;
+                }
+            });
+        }
+    });
+
+    if (closestPointKey) {
+        const idx = activeLabels.indexOf(closestPointKey);
+        if (idx > -1) activeLabels.splice(idx, 1);
+        else activeLabels.push(closestPointKey);
+        requestDraw();
+        return;
+    }
+
+    // 3. Check if clicked near a scene intersection point
+    const sceneIntersections = getSceneIntersections();
+    let closestIntersection = null;
+    let closestIntersectionDist = Infinity;
+    sceneIntersections.forEach(it => {
+        const sx = toScrX(it.x);
+        const sy = toScrY(it.y);
+        const dist = Math.hypot(mouseX - sx, mouseY - sy);
+        if (dist < 15 && dist < closestIntersectionDist) {
+            closestIntersectionDist = dist;
+            closestIntersection = it;
+        }
+    });
+    
+    if (closestIntersection) {
+        const idx = activeLabels.indexOf(closestIntersection.key);
+        if (idx > -1) activeLabels.splice(idx, 1);
+        else activeLabels.push(closestIntersection.key);
+        requestDraw();
+        return;
+    }
+
+    // 4. If not clicking any point directly, check lines.
+    // To prevent clicking lines near intersections/special points, check if the click is within an exclusion zone (25px).
+    let nearAnySpecialPoint = false;
+    
+    if (Math.hypot(mouseX - ox, mouseY - oy) < 25) {
+        nearAnySpecialPoint = true;
+    }
+    
+    conics.forEach(c => {
+        if (c.center && c.styles.center.show) {
+            const sx = toScrX(c.center.x);
+            const sy = toScrY(c.center.y);
+            if (Math.hypot(mouseX - sx, mouseY - sy) < 25) {
+                nearAnySpecialPoint = true;
+            }
+        }
+        if (c.foci && c.styles.foci.show) {
+            c.foci.forEach(f => {
+                const sx = toScrX(f.x);
+                const sy = toScrY(f.y);
+                if (Math.hypot(mouseX - sx, mouseY - sy) < 25) {
+                    nearAnySpecialPoint = true;
+                }
+            });
+        }
+        if (c.vertices) {
+            c.vertices.forEach(v => {
+                const sx = toScrX(v.x);
+                const sy = toScrY(v.y);
+                if (Math.hypot(mouseX - sx, mouseY - sy) < 25) {
+                    nearAnySpecialPoint = true;
+                }
+            });
+        }
+        if (c.coVertices) {
+            c.coVertices.forEach(v => {
+                const sx = toScrX(v.x);
+                const sy = toScrY(v.y);
+                if (Math.hypot(mouseX - sx, mouseY - sy) < 25) {
+                    nearAnySpecialPoint = true;
+                }
+            });
+        }
+    });
+    
+    sceneIntersections.forEach(it => {
+        const sx = toScrX(it.x);
+        const sy = toScrY(it.y);
+        if (Math.hypot(mouseX - sx, mouseY - sy) < 25) {
+            nearAnySpecialPoint = true;
+        }
+    });
+
+    if (!nearAnySpecialPoint) {
+        let closestLineKey = null;
+        let closestLineDist = Infinity;
+
+        conics.forEach(c => {
+            const checkLineCandidate = (lineEq, key, show) => {
+                if (!lineEq || !show) return;
+                const distMath = Math.abs(lineEq.nx * mathX + lineEq.ny * mathY - lineEq.d) / Math.hypot(lineEq.nx, lineEq.ny);
+                const distScr = distMath * scale;
+                if (distScr < 15 && distScr < closestLineDist) {
+                    closestLineDist = distScr;
+                    closestLineKey = key;
+                }
+            };
+
+            if (c.directrices && c.styles.directrices.show) {
+                c.directrices.forEach((d, dIdx) => {
+                    checkLineCandidate(d, `dir-${c.id}-${dIdx}`, true);
+                });
+            }
+            if (c.asymptotes && c.styles.asymptotes.show) {
+                c.asymptotes.forEach((a, aIdx) => {
+                    checkLineCandidate(a, `asym-${c.id}-${aIdx}`, true);
+                });
+            }
+            if (c.majorAxis && c.styles.axes.show) {
+                checkLineCandidate(c.majorAxis, `major-${c.id}`, true);
+            }
+            if (c.minorAxis && c.styles.axes.show) {
+                checkLineCandidate(c.minorAxis, `minor-${c.id}`, true);
+            }
+        });
+
+        if (closestLineKey) {
+            const idx = activeLabels.indexOf(closestLineKey);
+            if (idx > -1) activeLabels.splice(idx, 1);
+            else activeLabels.push(closestLineKey);
+            requestDraw();
+            return;
+        }
+    }
+    
     isDragging = true;
     lastMouseX = mouseX;
     lastMouseY = mouseY;
+    requestDraw();
 });
 window.addEventListener('mouseup', () => { isDragging = false; draggingPoint = null; });
 
@@ -164,16 +316,76 @@ function getConicPoints(c) {
     return pts;
 }
 
+function intersectConicLine(c, line) {
+    const { A, B, C, D, E, F } = c;
+    const { nx, ny, d } = line;
+    const den = nx*nx + ny*ny;
+    if (den < 1e-10) return [];
+    
+    const pts = [];
+    if (Math.abs(ny) > Math.abs(nx)) {
+        const qa = A*ny*ny - B*nx*ny + C*nx*nx;
+        const qb = B*ny*d - 2*C*d*nx + D*ny*ny - E*ny*nx;
+        const qc = C*d*d + E*ny*d + F*ny*ny;
+        const sols = solveQuadratic(qa, qb, qc);
+        sols.forEach(x => {
+            pts.push({ x: x, y: (d - nx*x)/ny });
+        });
+    } else {
+        const qa = A*ny*ny - B*nx*ny + C*nx*nx;
+        const qb = -2*A*d*ny + B*nx*d - D*nx*ny + E*nx*nx;
+        const qc = A*d*d + D*nx*d + F*nx*nx;
+        const sols = solveQuadratic(qa, qb, qc);
+        sols.forEach(y => {
+            pts.push({ x: (d - ny*y)/nx, y: y });
+        });
+    }
+    return pts;
+}
+
+function intersectTwoConics(c1, c2) {
+    const pts1 = getConicPoints(c1);
+    const intersections = [];
+    
+    const evalConic = (c, x, y) => {
+        return c.A*x*x + c.B*x*y + c.C*y*y + c.D*x + c.E*y + c.F;
+    };
+    
+    if (pts1.length < 2) return [];
+    
+    let prevPt = pts1[0];
+    let prevVal = evalConic(c2, prevPt.x, prevPt.y);
+    
+    for (let i = 1; i < pts1.length; i++) {
+        const currPt = pts1[i];
+        const currVal = evalConic(c2, currPt.x, currPt.y);
+        
+        if (prevVal * currVal < 0) {
+            const t = Math.abs(prevVal) / (Math.abs(prevVal) + Math.abs(currVal));
+            const ix = prevPt.x + t * (currPt.x - prevPt.x);
+            const iy = prevPt.y + t * (currPt.y - prevPt.y);
+            
+            if (!intersections.some(pt => Math.hypot(pt.x - ix, pt.y - iy) < 0.05)) {
+                intersections.push({ x: ix, y: iy });
+            }
+        }
+        prevPt = currPt;
+        prevVal = currVal;
+    }
+    return intersections;
+}
+
 function getClosestPointOnConics(mathX, mathY) {
     let closestDist = Infinity;
     let closestPt = null;
     let closestConicId = null;
     let closestType = 'curve';
+    let closestPtIdx = 0;
 
     conics.forEach(c => {
         if (c.styles.curve.show) {
             const pts = getConicPoints(c);
-            pts.forEach(p => {
+            pts.forEach((p, idx) => {
                 const sx = toScrX(p.x), sy = toScrY(p.y);
                 const msx = toScrX(mathX), msy = toScrY(mathY);
                 const dist = Math.hypot(sx - msx, sy - msy);
@@ -182,6 +394,7 @@ function getClosestPointOnConics(mathX, mathY) {
                     closestPt = {x: p.x, y: p.y};
                     closestConicId = c.id;
                     closestType = 'curve';
+                    closestPtIdx = idx;
                 }
             });
         }
@@ -200,6 +413,7 @@ function getClosestPointOnConics(mathX, mathY) {
                 closestPt = {x: mathX + t*nx, y: mathY + t*ny};
                 closestConicId = c.id;
                 closestType = {type: 'line', lineEq: lineEq, styleKey: styleKey}; 
+                closestPtIdx = -1;
             }
         };
 
@@ -209,7 +423,7 @@ function getClosestPointOnConics(mathX, mathY) {
         if (c.directrices) c.directrices.forEach(l => checkLine(l, 'directrices'));
     });
 
-    return { closestDist, closestPt, closestConicId, closestType };
+    return { closestDist, closestPt, closestConicId, closestType, closestPtIdx };
 }
 
 window.addEventListener('mousemove', e => {
@@ -220,7 +434,7 @@ window.addEventListener('mousemove', e => {
         const SNAP_THRESHOLD = 20;
         const BREAKOUT_THRESHOLD = 50;
         
-        const { closestDist, closestPt, closestConicId, closestType } = getClosestPointOnConics(mathX, mathY);
+        const { closestDist, closestPt, closestConicId, closestType, closestPtIdx } = getClosestPointOnConics(mathX, mathY);
 
         if (draggingPoint.isSnapped) {
             if (closestDist > BREAKOUT_THRESHOLD) {
@@ -236,18 +450,44 @@ window.addEventListener('mousemove', e => {
                         const pts = getConicPoints(c);
                         let minDist = Infinity;
                         let bestP = {x: mathX, y: mathY};
-                        pts.forEach(p => {
+                        let bestIdx = 0;
+                        pts.forEach((p, idx) => {
                             const dist = Math.hypot(toScrX(p.x) - e.clientX, toScrY(p.y) - e.clientY);
-                            if (dist < minDist) { minDist = dist; bestP = p; }
+                            if (dist < minDist) { minDist = dist; bestP = p; bestIdx = idx; }
                         });
                         draggingPoint.x = bestP.x;
                         draggingPoint.y = bestP.y;
+                        
+                        if (c.type === 'Ellipse') {
+                            draggingPoint.tParam = (bestIdx / 400) * Math.PI * 2;
+                        } else if (c.type === 'Hyperbola') {
+                            const maxDist = Math.max(width, height) / scale * 1.5;
+                            const T = Math.acosh(Math.max(1.1, maxDist / c.a));
+                            if (bestIdx <= 200) {
+                                draggingPoint.hyperbolaBranch = 1;
+                                draggingPoint.tParam = -T + (bestIdx / 200) * (2 * T);
+                            } else {
+                                draggingPoint.hyperbolaBranch = -1;
+                                draggingPoint.tParam = -T + ((bestIdx - 201) / 200) * (2 * T);
+                            }
+                        } else if (c.type === 'Parabola') {
+                            const maxDist = Math.max(width, height) / scale * 1.5;
+                            const T = Math.sqrt(Math.abs(maxDist / Math.abs(c.a_par)));
+                            draggingPoint.tParam = -T + (bestIdx / 400) * (2 * T);
+                        }
                     } else if (typeof draggingPoint.snappedType === 'object' && draggingPoint.snappedType.type === 'line' && c.styles[draggingPoint.snappedType.styleKey].show) {
                         const {nx, ny, d} = draggingPoint.snappedType.lineEq;
                         const den = nx*nx + ny*ny;
                         const t = (d - nx*mathX - ny*mathY) / den;
                         draggingPoint.x = mathX + t*nx;
                         draggingPoint.y = mathY + t*ny;
+                        
+                        const len = Math.sqrt(den);
+                        const vx = -ny / len;
+                        const vy = nx / len;
+                        const p0x = d * nx / den;
+                        const p0y = d * ny / den;
+                        draggingPoint.tParam = (draggingPoint.x - p0x) * vx + (draggingPoint.y - p0y) * vy;
                     } else {
                         draggingPoint.isSnapped = false;
                         draggingPoint.snappedConicId = null;
@@ -266,6 +506,38 @@ window.addEventListener('mousemove', e => {
                 draggingPoint.snappedType = closestType;
                 draggingPoint.x = closestPt.x;
                 draggingPoint.y = closestPt.y;
+                
+                let c = conics.find(cx => cx.id === closestConicId);
+                if (c) {
+                    if (closestType === 'curve') {
+                        if (c.type === 'Ellipse') {
+                            draggingPoint.tParam = (closestPtIdx / 400) * Math.PI * 2;
+                        } else if (c.type === 'Hyperbola') {
+                            const maxDist = Math.max(width, height) / scale * 1.5;
+                            const T = Math.acosh(Math.max(1.1, maxDist / c.a));
+                            if (closestPtIdx <= 200) {
+                                draggingPoint.hyperbolaBranch = 1;
+                                draggingPoint.tParam = -T + (closestPtIdx / 200) * (2 * T);
+                            } else {
+                                draggingPoint.hyperbolaBranch = -1;
+                                draggingPoint.tParam = -T + ((closestPtIdx - 201) / 200) * (2 * T);
+                            }
+                        } else if (c.type === 'Parabola') {
+                            const maxDist = Math.max(width, height) / scale * 1.5;
+                            const T = Math.sqrt(Math.abs(maxDist / Math.abs(c.a_par)));
+                            draggingPoint.tParam = -T + (closestPtIdx / 400) * (2 * T);
+                        }
+                    } else if (typeof closestType === 'object' && closestType.type === 'line') {
+                        const {nx, ny, d} = closestType.lineEq;
+                        const den = nx*nx + ny*ny;
+                        const len = Math.sqrt(den);
+                        const vx = -ny / len;
+                        const vy = nx / len;
+                        const p0x = d * nx / den;
+                        const p0y = d * ny / den;
+                        draggingPoint.tParam = (draggingPoint.x - p0x) * vx + (draggingPoint.y - p0y) * vy;
+                    }
+                }
             } else {
                 draggingPoint.x = mathX;
                 draggingPoint.y = mathY;
@@ -425,12 +697,25 @@ function updateMath(c, card) {
     const eqDiv = card.querySelector('.main-equation');
     if (window.katex) katex.render(eq, eqDiv, { displayMode: true, throwOnError: false });
     
+    // Automatically fill the text input value with the formatted equation if it's currently empty
+    const freeformInput = card.querySelector('.freeform-input');
+    if (freeformInput && !freeformInput.value) {
+        // Remove LaTeX formatting symbols to make it clean readable plain text
+        freeformInput.value = eq
+            .replace(/\s*=\s*0$/, '')   // Removes trailing "= 0" (and any surrounding spaces)
+            .replace(/\\/g, '')         // Removes LaTeX backslashes (e.g., \times -> times)
+            .replace(/[{}]/g, '')       // Removes curly braces (e.g., x^{2} -> x^2)
+            .replace(/\s+/g, ' ')       // Collapses multiple spaces into a single space
+            .trim();                    // Trims whitespace from the edges
+    }
+    
     const setProp = (id, val) => {
         const el = card.querySelector(`.prop-${id}`);
         if (el) el.textContent = val;
     };
 
     c.foci = []; c.directrices = []; c.asymptotes = []; c.majorAxis = null; c.minorAxis = null;
+    c.vertices = []; c.coVertices = [];
     ['center', 'a', 'b', 'c', 'e', 'lr', 'theta', 'type'].forEach(id => setProp(id, '-'));
     card.querySelector('.details-foci').textContent = '-';
     card.querySelector('.details-directrices').textContent = '-';
@@ -485,6 +770,15 @@ function updateMath(c, card) {
                 const t_adj = theta + (c.isMajorX ? 0 : Math.PI/2);
                 const dx = focalDist * Math.cos(t_adj), dy = focalDist * Math.sin(t_adj);
                 c.foci = [{x: h+dx, y: k+dy}, {x: h-dx, y: k-dy}];
+                
+                const vx1 = h + c.a * Math.cos(t_adj), vy1 = k + c.a * Math.sin(t_adj);
+                const vx2 = h - c.a * Math.cos(t_adj), vy2 = k - c.a * Math.sin(t_adj);
+                c.vertices = [{x: vx1, y: vy1}, {x: vx2, y: vy2}];
+                
+                const cvx1 = h - c.b * Math.sin(t_adj), cvy1 = k + c.b * Math.cos(t_adj);
+                const cvx2 = h + c.b * Math.sin(t_adj), cvy2 = k - c.b * Math.cos(t_adj);
+                c.coVertices = [{x: cvx1, y: cvy1}, {x: cvx2, y: cvy2}];
+
                 card.querySelector('.details-foci').textContent = `F1: (${formatVal(h+dx)}, ${formatVal(k+dy)})\nF2: (${formatVal(h-dx)}, ${formatVal(k-dy)})`;
                 
                 const dirDist = a2 / focalDist;
@@ -506,6 +800,12 @@ function updateMath(c, card) {
                 const t_adj = theta + (c.isMajorX ? 0 : Math.PI/2);
                 const dx = focalDist * Math.cos(t_adj), dy = focalDist * Math.sin(t_adj);
                 c.foci = [{x: h+dx, y: k+dy}, {x: h-dx, y: k-dy}];
+                
+                const vx1 = h + c.a * Math.cos(t_adj), vy1 = k + c.a * Math.sin(t_adj);
+                const vx2 = h - c.a * Math.cos(t_adj), vy2 = k - c.a * Math.sin(t_adj);
+                c.vertices = [{x: vx1, y: vy1}, {x: vx2, y: vy2}];
+                c.coVertices = [];
+
                 card.querySelector('.details-foci').textContent = `F1: (${formatVal(h+dx)}, ${formatVal(k+dy)})\nF2: (${formatVal(h-dx)}, ${formatVal(k-dy)})`;
                 
                 const dirDist = a2 / focalDist;
@@ -548,6 +848,10 @@ function updateMath(c, card) {
             const t_adj = theta + (c.isMajorX ? 0 : Math.PI/2);
             const fx = h + p * Math.cos(t_adj), fy = k + p * Math.sin(t_adj);
             c.foci = [{x: fx, y: fy}];
+            
+            c.vertices = [{x: h, y: k}];
+            c.coVertices = [];
+
             card.querySelector('.details-foci').textContent = `F: (${formatVal(fx)}, ${formatVal(fy)})`;
             const dnx = Math.cos(t_adj), dny = Math.sin(t_adj);
             const d_dist = dnx*(h - p*dnx) + dny*(k - p*dny);
@@ -649,6 +953,64 @@ function solveQuadratic(a, b, c) {
     return [(-b+Math.sqrt(det))/(2*a), (-b-Math.sqrt(det))/(2*a)];
 }
 
+function getSceneIntersections() {
+    let intersections = [];
+    
+    // 1. Conic-Conic intersections
+    for (let i = 0; i < conics.length; i++) {
+        for (let j = i + 1; j < conics.length; j++) {
+            const pts = intersectTwoConics(conics[i], conics[j]);
+            pts.forEach((pt, idx) => {
+                intersections.push({
+                    x: pt.x,
+                    y: pt.y,
+                    key: `intersect-conic-conic-${conics[i].id}-${conics[j].id}-${idx}`,
+                    label: `Intersection (Conic ${i+1} & Conic ${j+1})`
+                });
+            });
+        }
+    }
+    
+    // 2. Conic-Line intersections (Directrices, Asymptotes, Axes)
+    conics.forEach((c, cIdx) => {
+        const lines = [];
+        conics.forEach((otherC, otherIdx) => {
+            if (otherC.directrices && otherC.styles.directrices.show) {
+                otherC.directrices.forEach((d, dIdx) => {
+                    lines.push({ eq: d, label: `Conic ${otherIdx+1} Directrix ${dIdx+1}`, key: `dir-${otherC.id}-${dIdx}` });
+                });
+            }
+            if (otherC.asymptotes && otherC.styles.asymptotes.show) {
+                otherC.asymptotes.forEach((a, aIdx) => {
+                    lines.push({ eq: a, label: `Conic ${otherIdx+1} Asymptote ${aIdx+1}`, key: `asym-${otherC.id}-${aIdx}` });
+                });
+            }
+            if (otherC.majorAxis && otherC.styles.axes.show) {
+                lines.push({ eq: otherC.majorAxis, label: `Conic ${otherIdx+1} Major Axis`, key: `major-${otherC.id}` });
+            }
+            if (otherC.minorAxis && otherC.styles.axes.show) {
+                lines.push({ eq: otherC.minorAxis, label: `Conic ${otherIdx+1} Minor Axis`, key: `minor-${otherC.id}` });
+            }
+        });
+        
+        lines.forEach(l => {
+            const pts = intersectConicLine(c, l.eq);
+            pts.forEach((pt, idx) => {
+                if (!intersections.some(existing => Math.hypot(existing.x - pt.x, existing.y - pt.y) < 0.01 && existing.key.includes(l.key))) {
+                    intersections.push({
+                        x: pt.x,
+                        y: pt.y,
+                        key: `intersect-conic-line-${c.id}-${l.key}-${idx}`,
+                        label: `Intersection (Conic ${cIdx+1} & ${l.label})`
+                    });
+                }
+            });
+        });
+    });
+    
+    return intersections;
+}
+
 function drawScene(t) {
     drawGrid();
 
@@ -747,6 +1109,117 @@ function drawScene(t) {
             });
         }
         resetStyle();
+        if (c.vertices) {
+            c.vertices.forEach((v, vIdx) => {
+                const sx = toScrX(v.x);
+                const sy = toScrY(v.y);
+                ctx.fillStyle = '#f43f5e';
+                ctx.beginPath(); ctx.arc(sx, sy, 4.5, 0, Math.PI*2); ctx.fill();
+                
+                if (activeLabels.includes(`vertex-${c.id}-${vIdx}`)) {
+                    drawTooltip(`Vertex: (${formatVal(v.x)}, ${formatVal(v.y)})`, sx, sy);
+                }
+            });
+        }
+        resetStyle();
+        if (c.coVertices) {
+            c.coVertices.forEach((v, vIdx) => {
+                const sx = toScrX(v.x);
+                const sy = toScrY(v.y);
+                ctx.fillStyle = '#ec4899';
+                ctx.beginPath(); ctx.arc(sx, sy, 4.5, 0, Math.PI*2); ctx.fill();
+                
+                if (activeLabels.includes(`covertex-${c.id}-${vIdx}`)) {
+                    drawTooltip(`Co-Vertex: (${formatVal(v.x)}, ${formatVal(v.y)})`, sx, sy);
+                }
+            });
+        }
+        resetStyle();
+        if (c.directrices && c.styles.directrices.show) {
+            c.directrices.forEach((d, dIdx) => {
+                if (activeLabels.includes(`dir-${c.id}-${dIdx}`)) {
+                    let sx = toScrX(2);
+                    let sy = toScrY((d.d - d.nx * 2) / d.ny);
+                    if (Math.abs(d.ny) < 1e-4) {
+                        sx = toScrX(d.d / d.nx);
+                        sy = toScrY(1);
+                    }
+                    const text = `Dir: ${formatVal(d.nx)}x + ${formatVal(d.ny)}y = ${formatVal(d.d)}`;
+                    drawTooltip(text, sx, sy);
+                }
+            });
+        }
+        if (c.asymptotes && c.styles.asymptotes.show) {
+            c.asymptotes.forEach((a, aIdx) => {
+                if (activeLabels.includes(`asym-${c.id}-${aIdx}`)) {
+                    let sx = toScrX(-3);
+                    let sy = toScrY((a.d - a.nx * -3) / a.ny);
+                    if (Math.abs(a.ny) < 1e-4) {
+                        sx = toScrX(a.d / a.nx);
+                        sy = toScrY(-2);
+                    }
+                    const text = `Asym: ${formatVal(a.nx)}x + ${formatVal(a.ny)}y = ${formatVal(a.d)}`;
+                    drawTooltip(text, sx, sy);
+                }
+            });
+        }
+        if (c.majorAxis && c.styles.axes.show && activeLabels.includes(`major-${c.id}`)) {
+            const d = c.majorAxis;
+            let sx = toScrX(1);
+            let sy = toScrY((d.d - d.nx * 1) / d.ny);
+            if (Math.abs(d.ny) < 1e-4) {
+                sx = toScrX(d.d / d.nx);
+                sy = toScrY(2);
+            }
+            const text = `Major Axis: ${formatVal(d.nx)}x + ${formatVal(d.ny)}y = ${formatVal(d.d)}`;
+            drawTooltip(text, sx, sy);
+        }
+        if (c.minorAxis && c.styles.axes.show && activeLabels.includes(`minor-${c.id}`)) {
+            const d = c.minorAxis;
+            let sx = toScrX(-1);
+            let sy = toScrY((d.d - d.nx * -1) / d.ny);
+            if (Math.abs(d.ny) < 1e-4) {
+                sx = toScrX(d.d / d.nx);
+                sy = toScrY(-2);
+            }
+            const text = `Minor Axis: ${formatVal(d.nx)}x + ${formatVal(d.ny)}y = ${formatVal(d.d)}`;
+            drawTooltip(text, sx, sy);
+        }
+    });
+
+    // Draw Origin (slate grey)
+    const ox = toScrX(0);
+    const oy = toScrY(0);
+    ctx.fillStyle = '#64748b';
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(ox, oy, 5, 0, Math.PI*2);
+    ctx.fill();
+    ctx.stroke();
+    
+    if (activeLabels.includes('origin')) {
+        drawTooltip('Origin: (0, 0)', ox, oy);
+    }
+    
+    // Draw Intersections (yellow-orange)
+    const sceneIntersections = getSceneIntersections();
+    sceneIntersections.forEach(it => {
+        const sx = toScrX(it.x);
+        const sy = toScrY(it.y);
+        if (sx >= 0 && sx <= width && sy >= 0 && sy <= height) {
+            ctx.fillStyle = '#fb923c';
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(sx, sy, 5, 0, Math.PI*2);
+            ctx.fill();
+            ctx.stroke();
+            
+            if (activeLabels.includes(it.key)) {
+                drawTooltip(`${it.label}: (${formatVal(it.x)}, ${formatVal(it.y)})`, sx, sy);
+            }
+        }
     });
 
     points.forEach(p => {
@@ -938,6 +1411,54 @@ function drawScene(t) {
 
 let lastTime = 0;
 
+function getScreenPos(p, tParam) {
+    const c = conics.find(cx => cx.id === p.snappedConicId);
+    if (!c) return null;
+    
+    let mathX = undefined, mathY = undefined;
+    if (p.snappedType === 'curve') {
+        if (c.type === 'Ellipse') {
+            const { a, b, center: {x: h, y: k}, theta, isMajorX } = c;
+            const t_adj = theta + (isMajorX ? 0 : Math.PI/2);
+            const X = a * Math.cos(tParam);
+            const Y = b * Math.sin(tParam);
+            mathX = h + X * Math.cos(t_adj) - Y * Math.sin(t_adj);
+            mathY = k + X * Math.sin(t_adj) + Y * Math.cos(t_adj);
+        } else if (c.type === 'Hyperbola') {
+            const { a, b, center: {x: h, y: k}, theta, isMajorX } = c;
+            const t_adj = theta + (isMajorX ? 0 : Math.PI/2);
+            const sign = p.hyperbolaBranch !== undefined ? p.hyperbolaBranch : 1;
+            const X = sign * a * Math.cosh(tParam);
+            const Y = b * Math.sinh(tParam);
+            mathX = h + X * Math.cos(t_adj) - Y * Math.sin(t_adj);
+            mathY = k + X * Math.sin(t_adj) + Y * Math.cos(t_adj);
+        } else if (c.type === 'Parabola') {
+            const { center: {x: h, y: k}, theta, a_par, isMajorX } = c;
+            const X = isMajorX ? (tParam*tParam)/(4*a_par) : tParam;
+            const Y = isMajorX ? tParam : (tParam*tParam)/(4*a_par);
+            mathX = h + X * Math.cos(theta) - Y * Math.sin(theta);
+            mathY = k + X * Math.sin(theta) + Y * Math.cos(theta);
+        }
+    } else if (typeof p.snappedType === 'object' && p.snappedType.type === 'line') {
+        const {nx, ny, d} = p.snappedType.lineEq;
+        const den = nx*nx + ny*ny;
+        if (den > 1e-10) {
+            const len = Math.sqrt(den);
+            const vx = -ny / len;
+            const vy = nx / len;
+            const p0x = d * nx / den;
+            const p0y = d * ny / den;
+            mathX = p0x + tParam * vx;
+            mathY = p0y + tParam * vy;
+        }
+    }
+    
+    if (mathX !== undefined) {
+        return { sx: toScrX(mathX), sy: toScrY(mathY), x: mathX, y: mathY };
+    }
+    return null;
+}
+
 function updateLoop(timeMs) {
     const dt = (timeMs - lastTime) / 1000;
     lastTime = timeMs;
@@ -953,43 +1474,75 @@ function updateLoop(timeMs) {
     points.forEach(p => {
         if (p.isPlaying && p.isSnapped && p.snappedConicId !== null) {
             wantsNextFrame = true;
-            p.tParam += p.speed * dt;
             
-            const c = conics.find(cx => cx.id === p.snappedConicId);
-            if (c) {
-                let mathX = undefined, mathY = undefined;
-                if (c.type === 'Ellipse') {
-                    const { a, b, center: {x: h, y: k}, theta, isMajorX } = c;
-                    const t_adj = theta + (isMajorX ? 0 : Math.PI/2);
-                    const X = a * Math.cos(p.tParam);
-                    const Y = b * Math.sin(p.tParam);
-                    mathX = h + X * Math.cos(t_adj) - Y * Math.sin(t_adj);
-                    mathY = k + X * Math.sin(t_adj) + Y * Math.cos(t_adj);
-                } else if (c.type === 'Hyperbola') {
-                    const { a, b, center: {x: h, y: k}, theta, isMajorX } = c;
-                    const t_adj = theta + (isMajorX ? 0 : Math.PI/2);
-                    const sign = Math.cos(p.tParam) > 0 ? 1 : -1;
-                    const T_val = Math.tan(p.tParam / 2); 
-                    const X = sign * a * Math.cosh(T_val);
-                    const Y = b * Math.sinh(T_val);
-                    mathX = h + X * Math.cos(t_adj) - Y * Math.sin(t_adj);
-                    mathY = k + X * Math.sin(t_adj) + Y * Math.cos(t_adj);
-                } else if (c.type === 'Parabola') {
-                    const { center: {x: h, y: k}, theta, a_par, isMajorX } = c;
-                    const t_val = Math.tan(p.tParam / 2) * 5;
-                    const X = isMajorX ? (t_val*t_val)/(4*a_par) : t_val;
-                    const Y = isMajorX ? t_val : (t_val*t_val)/(4*a_par);
-                    mathX = h + X * Math.cos(theta) - Y * Math.sin(theta);
-                    mathY = k + X * Math.sin(theta) + Y * Math.cos(theta);
-                }
-                
-                if (mathX !== undefined) {
-                    p.x = mathX;
-                    p.y = mathY;
-                    const card = document.getElementById('point-card-' + p.id);
-                    if (card) {
-                        card.querySelector('.p-x').value = Math.round(p.x * 100) / 100;
-                        card.querySelector('.p-y').value = Math.round(p.y * 100) / 100;
+            const basePixelSpeed = 100;
+            const targetPixelStep = p.speed * basePixelSpeed * dt;
+            
+            const pos0 = getScreenPos(p, p.tParam);
+            if (pos0) {
+                const epsilon = 1e-5;
+                const posEps = getScreenPos(p, p.tParam + epsilon);
+                if (posEps) {
+                    const dp = Math.hypot(posEps.sx - pos0.sx, posEps.sy - pos0.sy);
+                    let deltaT = 0;
+                    if (dp > 1e-8) {
+                        deltaT = targetPixelStep * (epsilon / dp);
+                    } else {
+                        deltaT = p.speed * dt;
+                    }
+                    
+                    let nextT = p.tParam + deltaT;
+                    
+                    const c = conics.find(cx => cx.id === p.snappedConicId);
+                    if (c) {
+                        let mathX = undefined, mathY = undefined;
+                        
+                        const checkAndApply = (tx, ty) => {
+                            const scrMinX = toMathX(0);
+                            const scrMaxX = toMathX(width);
+                            const scrMinY = toMathY(height);
+                            const scrMaxY = toMathY(0);
+                            
+                            const minX = p.limitXMin !== undefined ? Math.max(scrMinX, p.limitXMin) : scrMinX;
+                            const maxX = p.limitXMax !== undefined ? Math.min(scrMaxX, p.limitXMax) : scrMaxX;
+                            const minY = p.limitYMin !== undefined ? Math.max(scrMinY, p.limitYMin) : scrMinY;
+                            const maxY = p.limitYMax !== undefined ? Math.min(scrMaxY, p.limitYMax) : scrMaxY;
+                            
+                            if (tx < minX || tx > maxX || ty < minY || ty > maxY) {
+                                p.speed = -p.speed;
+                                return false;
+                            }
+                            mathX = tx;
+                            mathY = ty;
+                            return true;
+                        };
+                        
+                        const nextPos = getScreenPos(p, nextT);
+                        if (nextPos) {
+                            if (checkAndApply(nextPos.x, nextPos.y)) {
+                                p.tParam = nextT;
+                            } else {
+                                const reversedPixelStep = p.speed * basePixelSpeed * dt;
+                                const reversedDeltaT = reversedPixelStep * (epsilon / dp);
+                                nextT = p.tParam + reversedDeltaT;
+                                const nextPos2 = getScreenPos(p, nextT);
+                                if (nextPos2) {
+                                    mathX = nextPos2.x;
+                                    mathY = nextPos2.y;
+                                    p.tParam = nextT;
+                                }
+                            }
+                        }
+                        
+                        if (mathX !== undefined) {
+                            p.x = mathX;
+                            p.y = mathY;
+                            const card = document.getElementById('point-card-' + p.id);
+                            if (card) {
+                                card.querySelector('.p-x').value = Math.round(p.x * 100) / 100;
+                                card.querySelector('.p-y').value = Math.round(p.y * 100) / 100;
+                            }
+                        }
                     }
                 }
             }
@@ -1040,7 +1593,8 @@ function addPoint() {
     const p = { 
         id, x: 2, y: 2, color: '#06b6d4', targetConic: 'none', relation: 'tangents', 
         isSnapped: false, snappedConicId: null, snappedType: null, floatMath: true,
-        isPlaying: false, tParam: 0, speed: 1, isTracing: false, trail: [] 
+        isPlaying: false, tParam: 0, speed: 1, isTracing: false, trail: [],
+        limitXMin: undefined, limitXMax: undefined, limitYMin: undefined, limitYMax: undefined
     };
     points.push(p);
 
@@ -1068,6 +1622,17 @@ function addPoint() {
                 <input type="checkbox" class="trace-cb"> Trace
             </label>
         </div>
+        <details class="details-section" style="margin-top: 10px;">
+            <summary style="font-size: 0.75rem; color: #94a3b8; cursor: pointer;">Play Limits (Optional)</summary>
+            <div style="display:flex; gap:10px; margin-top:5px;">
+                <div class="input-item" style="flex:1"><label style="font-size: 0.7rem;">X Min</label><input type="number" class="p-xmin" placeholder="None" step="0.5" style="font-size: 0.8rem;"></div>
+                <div class="input-item" style="flex:1"><label style="font-size: 0.7rem;">X Max</label><input type="number" class="p-xmax" placeholder="None" step="0.5" style="font-size: 0.8rem;"></div>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:5px;">
+                <div class="input-item" style="flex:1"><label style="font-size: 0.7rem;">Y Min</label><input type="number" class="p-ymin" placeholder="None" step="0.5" style="font-size: 0.8rem;"></div>
+                <div class="input-item" style="flex:1"><label style="font-size: 0.7rem;">Y Max</label><input type="number" class="p-ymax" placeholder="None" step="0.5" style="font-size: 0.8rem;"></div>
+            </div>
+        </details>
         <div style="display:flex; gap:10px; margin-top:10px; align-items:center;">
             <label style="font-size:0.75rem; color:#94a3b8;">Color:</label>
             <input type="color" class="p-color" value="${p.color}" style="flex:1; height:24px;">
@@ -1107,6 +1672,12 @@ function addPoint() {
 
     card.querySelector('.p-x').addEventListener('input', e => { p.x = parseFloat(e.target.value)||0; requestDraw(); });
     card.querySelector('.p-y').addEventListener('input', e => { p.y = parseFloat(e.target.value)||0; requestDraw(); });
+    
+    card.querySelector('.p-xmin').addEventListener('input', e => { p.limitXMin = e.target.value === '' ? undefined : parseFloat(e.target.value); });
+    card.querySelector('.p-xmax').addEventListener('input', e => { p.limitXMax = e.target.value === '' ? undefined : parseFloat(e.target.value); });
+    card.querySelector('.p-ymin').addEventListener('input', e => { p.limitYMin = e.target.value === '' ? undefined : parseFloat(e.target.value); });
+    card.querySelector('.p-ymax').addEventListener('input', e => { p.limitYMax = e.target.value === '' ? undefined : parseFloat(e.target.value); });
+
     card.querySelector('.p-color').addEventListener('input', e => { p.color = e.target.value; card.style.borderLeftColor = p.color; card.querySelector('div>div>div').style.background = p.color; requestDraw(); });
     card.querySelector('.tangent-select').addEventListener('change', e => { p.targetConic = e.target.value; requestDraw(); });
     card.querySelector('.relation-select').addEventListener('change', e => { 
@@ -1117,12 +1688,26 @@ function addPoint() {
     card.querySelector('.float-math-cb').addEventListener('change', e => { p.floatMath = e.target.checked; requestDraw(); });
     
     card.querySelector('.play-btn').addEventListener('click', e => { 
+        if (!p.isSnapped) {
+            alert("Please drag this Interactive Point onto a conic curve or line to lock/snap it first!");
+            p.isPlaying = false;
+            e.target.textContent = '▶️';
+            return;
+        }
         p.isPlaying = !p.isPlaying; 
         e.target.textContent = p.isPlaying ? '⏸️' : '▶️';
         if (p.isPlaying) requestDraw();
     });
     card.querySelector('.speed-slider').addEventListener('input', e => { p.speed = parseFloat(e.target.value); });
     card.querySelector('.trace-cb').addEventListener('change', e => { 
+        if (e.target.checked && !p.isSnapped) {
+            alert("Please drag this Interactive Point onto a conic curve or line to lock/snap it first!");
+            e.target.checked = false;
+            p.isTracing = false;
+            p.trail = [];
+            requestDraw();
+            return;
+        }
         p.isTracing = e.target.checked; 
         if (!p.isTracing) p.trail = [];
         requestDraw(); 
@@ -1194,7 +1779,7 @@ function addConic(initParams = null) {
             <button class="delete-btn">&times;</button>
         </div>
         <div class="equation-container" style="margin-bottom:10px;">
-            <input type="text" class="freeform-input" placeholder="e.g. x^2/4 + y^2 = 1">
+            <input type="text" class="freeform-input" placeholder="">
             <div class="main-equation" style="margin-top: 10px;"></div>
             <div class="equation-error error-msg" style="display: none; color: #ef4444; font-size: 0.75rem; margin-top: 5px;">Invalid equation</div>
         </div>
@@ -1343,16 +1928,22 @@ document.addEventListener('fullscreenchange', () => {
     }
 });
 
-const urlParams = new URLSearchParams(window.location.search);
-if (urlParams.has('A')) {
-    addConic({
-        A: parseFloat(urlParams.get('A'))||0,
-        B: parseFloat(urlParams.get('B'))||0,
-        C: parseFloat(urlParams.get('C'))||0,
-        D: parseFloat(urlParams.get('D'))||0,
-        E: parseFloat(urlParams.get('E'))||0,
-        F: parseFloat(urlParams.get('F'))||0
-    });
+const paramsStr = localStorage.getItem('conic_params');
+if (paramsStr) {
+    try {
+        const params = JSON.parse(paramsStr);
+        addConic({
+            A: parseFloat(params.A)||0,
+            B: parseFloat(params.B)||0,
+            C: parseFloat(params.C)||0,
+            D: parseFloat(params.D)||0,
+            E: parseFloat(params.E)||0,
+            F: parseFloat(params.F)||0
+        });
+    } catch(e) {
+        addConic();
+    }
+    localStorage.removeItem('conic_params'); // Clear after load to prevent stale state
 } else {
     addConic();
 }
