@@ -53,9 +53,46 @@ const toScrY = (y) => height/2 + offsetY - y * scale;
 const toMathX = (sx) => (sx - width/2 - offsetX) / scale;
 const toMathY = (sy) => -(sy - height/2 - offsetY) / scale;
 
+// Track clicked points to show coordinates labels (Desmos-like)
+let activeLabels = [];
+
 canvas.addEventListener('mousedown', e => {
     const mouseX = e.clientX;
     const mouseY = e.clientY;
+    
+    // Check if clicked near a conic's Foci or Center to toggle its coordinate label
+    let clickedSpecialPoint = false;
+    conics.forEach(c => {
+        if (c.center && c.styles.center.show) {
+            const sx = toScrX(c.center.x);
+            const sy = toScrY(c.center.y);
+            if (Math.hypot(mouseX - sx, mouseY - sy) < 15) {
+                const key = `center-${c.id}`;
+                const idx = activeLabels.indexOf(key);
+                if (idx > -1) activeLabels.splice(idx, 1);
+                else activeLabels.push(key);
+                clickedSpecialPoint = true;
+            }
+        }
+        if (c.foci && c.styles.foci.show) {
+            c.foci.forEach((f, fIdx) => {
+                const sx = toScrX(f.x);
+                const sy = toScrY(f.y);
+                if (Math.hypot(mouseX - sx, mouseY - sy) < 15) {
+                    const key = `focus-${c.id}-${fIdx}`;
+                    const idx = activeLabels.indexOf(key);
+                    if (idx > -1) activeLabels.splice(idx, 1);
+                    else activeLabels.push(key);
+                    clickedSpecialPoint = true;
+                }
+            });
+        }
+    });
+
+    if (clickedSpecialPoint) {
+        requestDraw();
+        return;
+    }
     
     for (let p of points) {
         const sx = toScrX(p.x);
@@ -287,7 +324,7 @@ document.getElementById('open-geo-panel').addEventListener('click', () => {
 
 function formatVal(v) {
     if (Math.abs(v) < 1e-10) return 0;
-    return Math.round(v * 1000) / 1000;
+    return Math.round(v * 100) / 100;
 }
 
 function getNiceStep(rawStep) {
@@ -556,6 +593,36 @@ function resetStyle() {
     ctx.setLineDash([]);
 }
 
+function drawTooltip(text, sx, sy) {
+    ctx.save();
+    ctx.shadowBlur = 0;
+    ctx.setLineDash([]);
+    
+    ctx.font = '12px sans-serif';
+    const padding = 6;
+    const textWidth = ctx.measureText(text).width;
+    const rectWidth = textWidth + padding * 2;
+    const rectHeight = 24;
+    const rx = sx - rectWidth / 2;
+    const ry = sy - 35;
+    
+    // Draw box background
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(rx, ry, rectWidth, rectHeight, 4);
+    ctx.fill();
+    ctx.stroke();
+    
+    // Draw text
+    ctx.fillStyle = '#f8fafc';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, sx, ry + rectHeight / 2);
+    ctx.restore();
+}
+
 function drawLine(lineEq) {
     if (!lineEq) return;
     ctx.beginPath();
@@ -658,11 +725,25 @@ function drawScene(t) {
         resetStyle();
         
         if (applyStyle(c.styles.center, t) && c.center) {
-            ctx.beginPath(); ctx.arc(toScrX(c.center.x), toScrY(c.center.y), 4, 0, Math.PI*2); ctx.fill();
+            const sx = toScrX(c.center.x);
+            const sy = toScrY(c.center.y);
+            ctx.beginPath(); ctx.arc(sx, sy, 4, 0, Math.PI*2); ctx.fill();
+            
+            if (activeLabels.includes(`center-${c.id}`)) {
+                drawTooltip(`Center: (${formatVal(c.center.x)}, ${formatVal(c.center.y)})`, sx, sy);
+            }
         }
         resetStyle();
         if (applyStyle(c.styles.foci, t) && c.foci) {
-            c.foci.forEach(f => { ctx.beginPath(); ctx.arc(toScrX(f.x), toScrY(f.y), 4, 0, Math.PI*2); ctx.fill(); });
+            c.foci.forEach((f, fIdx) => {
+                const sx = toScrX(f.x);
+                const sy = toScrY(f.y);
+                ctx.beginPath(); ctx.arc(sx, sy, 4, 0, Math.PI*2); ctx.fill();
+                
+                if (activeLabels.includes(`focus-${c.id}-${fIdx}`)) {
+                    drawTooltip(`Focus: (${formatVal(f.x)}, ${formatVal(f.y)})`, sx, sy);
+                }
+            });
         }
         resetStyle();
     });
@@ -1211,23 +1292,53 @@ resize();
 
 // Board toolbar handlers
 const fullscreenBtn = document.getElementById('fullscreen-btn');
-const presentationChk = document.getElementById('presentation-mode');
 fullscreenBtn.addEventListener('click', () => {
+    const sidePanel = document.getElementById('side-panel');
+    const geoPanel = document.getElementById('geometry-panel');
+    const openGeoBtn = document.getElementById('open-geo-panel');
+    
     if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
+        document.documentElement.requestFullscreen().then(() => {
+            // Hide side panels in fullscreen mode
+            sidePanel.classList.remove('open');
+            sidePanel.style.display = 'none';
+            geoPanel.classList.add('hidden');
+            openGeoBtn.classList.add('hidden');
+            const toggleBtn = document.getElementById('toggle-panel');
+            if (toggleBtn) toggleBtn.textContent = '▶';
+            const openBtn = document.getElementById('open-panel');
+            if (openBtn) openBtn.classList.remove('hidden');
+            resize();
+            requestDraw();
+        }).catch(err => console.log(err));
     } else {
-        document.exitFullscreen();
+        document.exitFullscreen().then(() => {
+            // Restore side panel visibility
+            sidePanel.classList.add('open');
+            sidePanel.style.display = '';
+            openGeoBtn.classList.remove('hidden');
+            const toggleBtn = document.getElementById('toggle-panel');
+            if (toggleBtn) toggleBtn.textContent = '◀';
+            const openBtn = document.getElementById('open-panel');
+            if (openBtn) openBtn.classList.add('hidden');
+            resize();
+            requestDraw();
+        }).catch(err => console.log(err));
     }
 });
-presentationChk.addEventListener('change', (e) => {
-    const sidePanel = document.getElementById('side-panel');
-    sidePanel.style.display = e.target.checked ? 'none' : '';
-    resize();
-    requestDraw();
-});
 document.addEventListener('fullscreenchange', () => {
-    if (!document.fullscreenElement && !presentationChk.checked) {
-        document.getElementById('side-panel').style.display = '';
+    if (!document.fullscreenElement) {
+        const sidePanel = document.getElementById('side-panel');
+        sidePanel.classList.add('open');
+        sidePanel.style.display = '';
+        const openGeoBtn = document.getElementById('open-geo-panel');
+        if (openGeoBtn) openGeoBtn.classList.remove('hidden');
+        const toggleBtn = document.getElementById('toggle-panel');
+        if (toggleBtn) toggleBtn.textContent = '◀';
+        const openBtn = document.getElementById('open-panel');
+        if (openBtn) openBtn.classList.add('hidden');
+        resize();
+        requestDraw();
     }
 });
 
